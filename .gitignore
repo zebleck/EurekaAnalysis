@@ -1,0 +1,72 @@
+# Unity generated files
+Library/
+Temp/
+obj/
+Builds/
+Build/
+Logs/
+UserSettings/
+*.sln
+*.csproj
+*.unityproj
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity crash logs
+*.log
+
+# Machine Learning / Training Data
+EurekaRewards/logs/
+EurekaRewards/results/
+EurekaRewards/tensorboard/
+EurekaRewards/test/logs/
+EurekaRewards/test/results/
+EurekaRewards/test/tensorboard/
+EurekaRewards/rewards/
+EurekaRewards/test/rewards/
+EurekaRewards/*.log
+EurekaRewards/status.json
+
+# Python files (if using ML/AI components)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Visual Studio / VS Code
+.vscode/
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
