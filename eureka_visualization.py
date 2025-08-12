@@ -317,44 +317,40 @@ def main():
         # Get available files
         files = EurekaDataLoader.get_available_files(current_dir)
         
-        # Filter out already selected files
-        available_files = [f for f in files if f not in st.session_state.selected_files]
-        
         if not files:
             st.warning(f"No JSON files found in {current_dir.name}")
         else:
-            # File selection dropdown
-            if available_files:
-                selected_file = st.selectbox(
-                    "Add file:",
-                    options=[None] + available_files,
-                    format_func=lambda x: "-- Select file --" if x is None else x.name
-                )
-                
-                if selected_file and st.button("➕ Add File"):
-                    st.session_state.selected_files.append(selected_file)
-                    st.rerun()
+            st.markdown("**📄 Available Files:**")
             
-            # Show selected files
-            if st.session_state.selected_files:
-                st.markdown("**Selected files:**")
-                files_to_remove = []
-                for i, file in enumerate(st.session_state.selected_files):
-                    col1, col2 = st.columns([4, 1])
-                    with col1:
-                        st.text(f"• {file.name}")
-                    with col2:
-                        if st.button("❌", key=f"remove_{i}"):
-                            files_to_remove.append(file)
-                
-                # Remove files after iteration
-                for file in files_to_remove:
-                    st.session_state.selected_files.remove(file)
+            # Select all / Deselect all buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Select All"):
+                    st.session_state.selected_files = files.copy()
                     st.rerun()
-                
-                if st.button("🗑️ Clear All"):
+            with col2:
+                if st.button("❌ Deselect All"):
                     st.session_state.selected_files = []
                     st.rerun()
+            
+            st.markdown("---")
+            
+            # Show all files with checkboxes
+            for file in files:
+                is_selected = file in st.session_state.selected_files
+                if st.checkbox(file.name, value=is_selected, key=f"file_{file.name}"):
+                    if file not in st.session_state.selected_files:
+                        st.session_state.selected_files.append(file)
+                        st.rerun()
+                else:
+                    if file in st.session_state.selected_files:
+                        st.session_state.selected_files.remove(file)
+                        st.rerun()
+            
+            # Show selected count
+            if st.session_state.selected_files:
+                st.markdown("---")
+                st.success(f"📊 {len(st.session_state.selected_files)} file(s) selected")
             else:
                 st.info("No files selected")
         
