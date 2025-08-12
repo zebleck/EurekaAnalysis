@@ -12,7 +12,7 @@ warnings.filterwarnings('ignore')
 
 # Configuration
 BASE_DIR = Path(__file__).parent
-DEFAULT_RESULTS_DIR = BASE_DIR / "EurekaRewards" / "test" / "results"
+DEFAULT_RESULTS_DIR = BASE_DIR / "EurekaRewards" / "test"
 DEFAULT_TENSORBOARD_DIR = BASE_DIR / "EurekaRewards" / "test" / "tensorboard"
 
 st.set_page_config(
@@ -39,10 +39,10 @@ class EurekaDataLoader:
     
     @staticmethod
     def get_available_files(directory: Path) -> List[Path]:
-        """Get all available JSON result files"""
+        """Get all available JSON result files recursively"""
         if not directory.exists():
             return []
-        return sorted([f for f in directory.glob("*.json")])
+        return sorted([f for f in directory.rglob("*.json")])
     
     @staticmethod
     def get_subdirectories(directory: Path) -> List[Path]:
@@ -338,7 +338,19 @@ def main():
             # Show all files with checkboxes
             for file in files:
                 is_selected = file in st.session_state.selected_files
-                if st.checkbox(file.name, value=is_selected, key=f"file_{file.name}"):
+                # Get relative path to show folder structure
+                rel_path = file.relative_to(current_dir)
+                folder = rel_path.parent.name if rel_path.parent.name else ""
+                
+                # Add icon based on folder
+                if "conversations" in str(rel_path):
+                    display_name = f"💬 {folder}/{file.name}" if folder else f"💬 {file.name}"
+                elif "results" in str(rel_path):
+                    display_name = f"📊 {folder}/{file.name}" if folder else f"📊 {file.name}"
+                else:
+                    display_name = f"📄 {folder}/{file.name}" if folder else f"📄 {file.name}"
+                
+                if st.checkbox(display_name, value=is_selected, key=f"file_{rel_path}"):
                     if file not in st.session_state.selected_files:
                         st.session_state.selected_files.append(file)
                         st.rerun()
@@ -381,25 +393,33 @@ def main():
     data_dict = {}
     all_dfs = {}
     errors_dict = {}
+    conversation_data = {}
     
     for filepath in selected_files:
         try:
-            data = EurekaDataLoader.load_json_results(filepath)
-            df = EurekaDataLoader.extract_checkpoint_data(data)
-            errors = EurekaDataLoader.get_compilation_errors(data)
-            
-            file_info = EurekaDataLoader.parse_filename(filepath.name)
-            label = f"Iter{file_info.get('iteration', '?')}_Sample{file_info.get('sample', '?')}"
-            if "attempt" in file_info:
-                label += f"_Attempt{file_info['attempt']}"
-            
-            if not df.empty:
-                data_dict[filepath] = data
-                all_dfs[label] = df
-            
-            if errors:
-                errors_dict[label] = errors
+            # Check if it's a conversation file
+            if "conversations" in str(filepath):
+                data = EurekaDataLoader.load_json_results(filepath)
+                conv_label = filepath.stem
+                conversation_data[conv_label] = data
+            else:
+                # Existing results file handling
+                data = EurekaDataLoader.load_json_results(filepath)
+                df = EurekaDataLoader.extract_checkpoint_data(data)
+                errors = EurekaDataLoader.get_compilation_errors(data)
                 
+                file_info = EurekaDataLoader.parse_filename(filepath.name)
+                label = f"Iter{file_info.get('iteration', '?')}_Sample{file_info.get('sample', '?')}"
+                if "attempt" in file_info:
+                    label += f"_Attempt{file_info['attempt']}"
+                
+                if not df.empty:
+                    data_dict[filepath] = data
+                    all_dfs[label] = df
+                
+                if errors:
+                    errors_dict[label] = errors
+                    
         except Exception as e:
             st.error(f"Error loading {filepath.name}: {str(e)}")
     
@@ -499,6 +519,79 @@ def main():
                         file_name="eureka_results_export.json",
                         mime="application/json"
                     )
+    
+    # Display conversation data if any
+    if conversation_data:
+        st.header("💬 Conversation Analysis")
+        
+        for conv_label, conv_data in conversation_data.items():
+            with st.expander(f"{conv_label}"):
+                # Display conversation metadata
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Iteration", conv_data.get("iteration", "N/A"))
+                with col2:
+                    st.metric("Run ID", conv_data.get("run_id", "N/A"))
+                with col3:
+                    st.metric("Type", conv_data.get("conversation_type", "N/A"))
+                
+                # Display model metadata if available
+                if "metadata" in conv_data:
+                    meta = conv_data["metadata"]
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Model", meta.get("model", "N/A"))
+                    with col2:
+                        st.metric("Total Tokens", meta.get("total_tokens", "N/A"))
+                    with col3:
+                        st.metric("Latency (ms)", f"{meta.get('latency_ms', 0):.0f}")
+                
+                # Display messages
+                if "messages" in conv_data:
+                    st.markdown("**Messages:**")
+                    
+                    # Master toggle for all messages in this conversation
+                    expand_all = st.toggle("Expand all messages", key=f"expand_all_{conv_label}")
+                    
+                    for i, msg in enumerate(conv_data["messages"]):
+                        role = msg.get("role", "unknown")
+                        content = msg.get("content", "")
+                        msg_key = f"{conv_label}_{role}_{i}"
+                        
+                        if len(content) > 200:
+                            preview = content[:200] + "..."
+                            # Individual toggle, but overridden by master toggle
+                            individual_expanded = st.toggle(f"Show full {role} message", key=f"toggle_{msg_key}", value=expand_all)
+                            
+                            display_content = content if (expand_all or individual_expanded) else preview
+                            if role == "system":
+                                st.info(f"**System:** {display_content}")
+                            elif role == "user":
+                                st.warning(f"**User:** {display_content}")
+                            elif role == "assistant":
+                                st.success(f"**Assistant:** {display_content}")
+                        else:
+                            if role == "system":
+                                st.info(f"**System:** {content}")
+                            elif role == "user":
+                                st.warning(f"**User:** {content}")
+                            elif role == "assistant":
+                                st.success(f"**Assistant:** {content}")
+                
+                # Display generated content
+                if "generated_content" in conv_data and conv_data["generated_content"]:
+                    st.markdown("**Generated Reward Function:**")
+                    content = conv_data["generated_content"]
+                    code_key = f"{conv_label}_code"
+                    
+                    if len(content) > 500:
+                        preview = content[:500] + "..."
+                        is_expanded = st.toggle("Show full code", key=f"toggle_{code_key}")
+                        
+                        display_content = content if is_expanded else preview
+                        st.code(display_content, language="csharp")
+                    else:
+                        st.code(content, language="csharp")
 
 if __name__ == "__main__":
     main()
