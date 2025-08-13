@@ -28,6 +28,8 @@ UserSettings/
 EurekaRewards/logs/
 EurekaRewards/results/
 EurekaRewards/tensorboard/
+EurekaRewards/test/conversations/
+EurekaRewards/test/
 EurekaRewards/test/logs/
 EurekaRewards/test/results/
 EurekaRewards/test/tensorboard/
@@ -35,6 +37,7 @@ EurekaRewards/rewards/
 EurekaRewards/test/rewards/
 EurekaRewards/*.log
 EurekaRewards/status.json
+runs/
 
 # Python files (if using ML/AI components)
 __pycache__/
