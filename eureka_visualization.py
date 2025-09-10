@@ -349,18 +349,28 @@ def main():
                 st.session_state.results_dir = parent_dir
                 st.rerun()
         
-        # Get and display subdirectories with file counts
+        # Get and display subdirectories with file counts in two columns
         subdirs = EurekaDataLoader.get_subdirectories(current_dir)
         if subdirs:
-            for subdir in subdirs:
+            # Create two columns for folder display
+            cols = st.columns(2)
+            
+            for idx, subdir in enumerate(subdirs):
                 # Count JSON files in each subdirectory
                 json_count = len(list(subdir.glob("**/*.json")))
                 folder_icon = "📁" if json_count == 0 else "📂"
-                button_label = f"{folder_icon} {subdir.name} ({json_count} files)"
                 
-                if st.button(button_label, key=f"dir_{subdir}", use_container_width=True):
-                    st.session_state.results_dir = subdir
-                    st.rerun()
+                # Shorten name if too long
+                name = subdir.name
+                if len(name) > 12:
+                    name = name[:10] + ".."
+                button_label = f"{folder_icon} {name}\n({json_count})"
+                
+                # Place button in alternating columns
+                with cols[idx % 2]:
+                    if st.button(button_label, key=f"dir_{subdir}", use_container_width=True, help=f"Full name: {subdir.name}"):
+                        st.session_state.results_dir = subdir
+                        st.rerun()
         else:
             st.info("No subdirectories found")
         
@@ -385,60 +395,71 @@ def main():
                     st.session_state.selected_files = []
                     st.rerun()
             
-            st.markdown("---")
-            
             # Organize files by folder
             conversations_files = [f for f in files if "conversations" in str(f.relative_to(current_dir))]
             results_files = [f for f in files if "results" in str(f.relative_to(current_dir))]
             rewards_files = [f for f in files if "rewards" in str(f.relative_to(current_dir))]
             
-            # Display conversation files
-            if conversations_files:
-                st.markdown("**💬 Conversations**")
-                for file in conversations_files:
-                    is_selected = file in st.session_state.selected_files
-                    display_name = f"💬 {file.name}"
-                    
-                    if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
-                        if file not in st.session_state.selected_files:
-                            st.session_state.selected_files.append(file)
-                            st.rerun()
-                    else:
-                        if file in st.session_state.selected_files:
-                            st.session_state.selected_files.remove(file)
-                            st.rerun()
+            # Display conversations and results side by side
+            col1, col2 = st.columns(2)
             
-            # Display results files
-            if results_files:
-                st.markdown("**📊 Results**")
-                for file in results_files:
-                    is_selected = file in st.session_state.selected_files
-                    display_name = f"📊 {file.name}"
-                    
-                    if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
-                        if file not in st.session_state.selected_files:
-                            st.session_state.selected_files.append(file)
-                            st.rerun()
-                    else:
-                        if file in st.session_state.selected_files:
-                            st.session_state.selected_files.remove(file)
-                            st.rerun()
+            # Display conversation files in left column
+            with col1:
+                if conversations_files:
+                    with st.expander(f"💬 Conversations ({len(conversations_files)})", expanded=False):
+                        for file in conversations_files:
+                            is_selected = file in st.session_state.selected_files
+                            # Shorten filename if too long
+                            name = file.name
+                            if len(name) > 25:
+                                name = name[:23] + ".."
+                            display_name = name
+                            
+                            if st.checkbox(display_name, value=is_selected, key=f"file_{file}", help=f"Full: {file.name}"):
+                                if file not in st.session_state.selected_files:
+                                    st.session_state.selected_files.append(file)
+                                    st.rerun()
+                            else:
+                                if file in st.session_state.selected_files:
+                                    st.session_state.selected_files.remove(file)
+                                    st.rerun()
             
-            # Display rewards files
+            # Display results files in right column
+            with col2:
+                if results_files:
+                    with st.expander(f"📊 Results ({len(results_files)})", expanded=False):
+                        for file in results_files:
+                            is_selected = file in st.session_state.selected_files
+                            # Shorten filename if too long
+                            name = file.name
+                            if len(name) > 25:
+                                name = name[:23] + ".."
+                            display_name = name
+                            
+                            if st.checkbox(display_name, value=is_selected, key=f"file_{file}", help=f"Full: {file.name}"):
+                                if file not in st.session_state.selected_files:
+                                    st.session_state.selected_files.append(file)
+                                    st.rerun()
+                            else:
+                                if file in st.session_state.selected_files:
+                                    st.session_state.selected_files.remove(file)
+                                    st.rerun()
+            
+            # Display rewards files separately (full width)
             if rewards_files:
-                st.markdown("**🎯 Rewards**")
-                for file in rewards_files:
-                    is_selected = file in st.session_state.selected_files
-                    display_name = f"🎯 {file.name}"
-                    
-                    if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
-                        if file not in st.session_state.selected_files:
-                            st.session_state.selected_files.append(file)
-                            st.rerun()
-                    else:
-                        if file in st.session_state.selected_files:
-                            st.session_state.selected_files.remove(file)
-                            st.rerun()
+                with st.expander(f"**🎯 Rewards ({len(rewards_files)})**", expanded=False):
+                    for file in rewards_files:
+                        is_selected = file in st.session_state.selected_files
+                        display_name = f"🎯 {file.name}"
+                        
+                        if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
+                            if file not in st.session_state.selected_files:
+                                st.session_state.selected_files.append(file)
+                                st.rerun()
+                        else:
+                            if file in st.session_state.selected_files:
+                                st.session_state.selected_files.remove(file)
+                                st.rerun()
             
             # Show selected count
             if st.session_state.selected_files:
@@ -446,22 +467,6 @@ def main():
                 st.success(f"📊 {len(st.session_state.selected_files)} file(s) selected")
             else:
                 st.info("No files selected")
-        
-        st.markdown("---")
-        
-        # Visualization options
-        st.header("📊 Visualization Options")
-        show_training_progress = st.checkbox("Training Progress", value=True)
-        show_reward_components = st.checkbox("Reward Components", value=True)
-        show_comparison = st.checkbox("Multi-Run Comparison", value=len(st.session_state.selected_files) > 1)
-        show_heatmap = st.checkbox("Success Rate Heatmap", value=True)
-        show_statistics = st.checkbox("Statistical Summary", value=True)
-        
-        if show_comparison and len(st.session_state.selected_files) > 1:
-            comparison_metric = st.selectbox(
-                "Comparison Metric:",
-                ["success_rate", "episode_reward_mean", "episode_length_mean"]
-            )
     
     # Main content
     if not st.session_state.selected_files:
@@ -504,179 +509,195 @@ def main():
         except Exception as e:
             st.error(f"Error loading {filepath.name}: {str(e)}")
     
-    # Display visualizations
-    if all_dfs:
-        # Training Progress
-        if show_training_progress:
-            st.header("📈 Training Progress")
-            cols = st.columns(min(2, len(all_dfs)))
-            for idx, (label, df) in enumerate(all_dfs.items()):
-                with cols[idx % len(cols)]:
-                    fig = create_training_progress_plot(df, title=label)
+    # Create tabs for different visualizations
+    if all_dfs or conversation_data:
+        tabs = ["🗺️ Success Heatmap", "📈 Training Progress", "🎯 Reward Components", "🔄 Comparison", "📊 Statistics", "💾 Export"]
+        if conversation_data:
+            tabs.append("💬 Conversations")
+        tab_list = st.tabs(tabs)
+        
+        if all_dfs:
+            with tab_list[0]:
+                # Heatmap
+                st.header("🗺️ Success Rate Heatmap")
+                # Get result files specifically for heatmap
+                results_dir = st.session_state.results_dir / "results"
+                if results_dir.exists():
+                    heatmap_files = sorted(results_dir.glob("*.json"))
+                else:
+                    heatmap_files = []
+                fig = create_heatmap(heatmap_files)
+                if fig.data:
                     st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Not enough data for heatmap visualization")
         
-        # Reward Components
-        if show_reward_components:
-            st.header("🎯 Reward Components")
-            for label, df in all_dfs.items():
-                with st.expander(f"{label} - Reward Components"):
-                    fig = create_reward_components_plot(df)
+            with tab_list[1]:
+                # Training Progress
+                st.header("📈 Training Progress")
+                cols = st.columns(min(2, len(all_dfs)))
+                for idx, (label, df) in enumerate(all_dfs.items()):
+                    with cols[idx % len(cols)]:
+                        fig = create_training_progress_plot(df, title=label)
+                        st.plotly_chart(fig, use_container_width=True)
+        
+            with tab_list[2]:
+                # Reward Components
+                st.header("🎯 Reward Components")
+                for label, df in all_dfs.items():
+                    with st.expander(f"{label} - Reward Components"):
+                        fig = create_reward_components_plot(df)
+                        st.plotly_chart(fig, use_container_width=True)
+        
+            with tab_list[3]:
+                # Comparison Plot
+                st.header("🔄 Multi-Run Comparison")
+                if len(all_dfs) > 1:
+                    comparison_metric = st.selectbox(
+                        "Comparison Metric:",
+                        ["success_rate", "episode_reward_mean", "episode_length_mean"]
+                    )
+                    fig = create_comparison_plot(all_dfs, comparison_metric)
                     st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Select multiple files to compare runs")
         
-        # Comparison Plot
-        if show_comparison and len(all_dfs) > 1:
-            st.header("🔄 Multi-Run Comparison")
-            fig = create_comparison_plot(all_dfs, comparison_metric)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Heatmap
-        if show_heatmap:
-            st.header("🗺️ Success Rate Heatmap")
-            # Get result files specifically for heatmap
-            results_dir = st.session_state.results_dir / "results"
-            if results_dir.exists():
-                heatmap_files = sorted(results_dir.glob("*.json"))
-            else:
-                heatmap_files = []
-            fig = create_heatmap(heatmap_files)
-            if fig.data:
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Not enough data for heatmap visualization")
-        
-        # Statistical Summary
-        if show_statistics:
-            st.header("📊 Statistical Summary")
-            
-            summary_data = []
-            for label, df in all_dfs.items():
-                if not df.empty:
-                    final_row = df.iloc[-1]
-                    summary_data.append({
-                        "Run": label,
-                        "Final Success Rate": f"{final_row['success_rate']:.3f}",
-                        "Final Episode Reward": f"{final_row['episode_reward_mean']:.3f} ± {final_row['episode_reward_std']:.3f}",
-                        "Total Episodes": int(final_row['total_episodes']),
-                        "Training Time (s)": f"{final_row['training_time']:.1f}",
-                        "Steps": len(df)
-                    })
-            
-            if summary_data:
-                summary_df = pd.DataFrame(summary_data)
-                st.dataframe(summary_df, use_container_width=True)
-        
-        # Raw Data Export
-        with st.expander("💾 Export Data"):
-            export_format = st.selectbox("Export Format:", ["CSV", "JSON"])
-            
-            if st.button("Generate Export"):
-                if export_format == "CSV":
-                    # Combine all dataframes
-                    combined_df = pd.concat(
-                        [df.assign(run=label) for label, df in all_dfs.items()],
-                        ignore_index=True
-                    )
-                    csv = combined_df.to_csv(index=False)
-                    st.download_button(
-                        label="Download CSV",
-                        data=csv,
-                        file_name="eureka_results_export.csv",
-                        mime="text/csv"
-                    )
-                else:  # JSON
-                    export_data = {
-                        label: df.to_dict(orient='records') 
-                        for label, df in all_dfs.items()
-                    }
-                    json_str = json.dumps(export_data, indent=2)
-                    st.download_button(
-                        label="Download JSON",
-                        data=json_str,
-                        file_name="eureka_results_export.json",
-                        mime="application/json"
-                    )
-    
-    # Display conversation data if any
-    if conversation_data:
-        st.header("💬 Conversation Analysis")
-        
-        for conv_label, conv_data in conversation_data.items():
-            with st.expander(f"{conv_label}"):
-                # Display conversation metadata
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Iteration", conv_data.get("iteration", "N/A"))
-                with col2:
-                    st.metric("Run ID", conv_data.get("run_id", "N/A"))
-                with col3:
-                    st.metric("Type", conv_data.get("conversation_type", "N/A"))
+            with tab_list[4]:
+                # Statistical Summary
+                st.header("📊 Statistical Summary")
                 
-                # Display model metadata if available
-                if "metadata" in conv_data:
-                    meta = conv_data["metadata"]
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Model", meta.get("model", "N/A"))
-                    with col2:
-                        st.metric("Total Tokens", meta.get("total_tokens", "N/A"))
-                    with col3:
-                        st.metric("Latency (ms)", f"{meta.get('latency_ms', 0):.0f}")
+                summary_data = []
+                for label, df in all_dfs.items():
+                    if not df.empty:
+                        final_row = df.iloc[-1]
+                        summary_data.append({
+                            "Run": label,
+                            "Final Success Rate": f"{final_row['success_rate']:.3f}",
+                            "Final Episode Reward": f"{final_row['episode_reward_mean']:.3f} ± {final_row['episode_reward_std']:.3f}",
+                            "Total Episodes": int(final_row['total_episodes']),
+                            "Training Time (s)": f"{final_row['training_time']:.1f}",
+                            "Steps": len(df)
+                        })
                 
-                # Display messages
-                if "messages" in conv_data:
-                    st.markdown("**Messages:**")
-                    
-                    # Master toggle for all messages in this conversation
-                    expand_all = st.toggle("Expand all messages", key=f"expand_all_{conv_label}")
-                    
-                    for i, msg in enumerate(conv_data["messages"]):
-                        role = msg.get("role", "unknown")
-                        content = msg.get("content", "")
-                        msg_key = f"{conv_label}_{role}_{i}"
+                if summary_data:
+                    summary_df = pd.DataFrame(summary_data)
+                    st.dataframe(summary_df, use_container_width=True)
+        
+            with tab_list[5]:
+                # Export Data
+                st.header("💾 Export Data")
+                export_format = st.selectbox("Export Format:", ["CSV", "JSON"])
+                
+                if st.button("Generate Export"):
+                    if export_format == "CSV":
+                        # Combine all dataframes
+                        combined_df = pd.concat(
+                            [df.assign(run=label) for label, df in all_dfs.items()],
+                            ignore_index=True
+                        )
+                        csv = combined_df.to_csv(index=False)
+                        st.download_button(
+                            label="Download CSV",
+                            data=csv,
+                            file_name="eureka_results_export.csv",
+                            mime="text/csv"
+                        )
+                    else:  # JSON
+                        export_data = {
+                            label: df.to_dict(orient='records') 
+                            for label, df in all_dfs.items()
+                        }
+                        json_str = json.dumps(export_data, indent=2)
+                        st.download_button(
+                            label="Download JSON",
+                            data=json_str,
+                            file_name="eureka_results_export.json",
+                            mime="application/json"
+                        )
+            with tab_list[6]:
+            
+                # Display conversation data in its own tab
+                if conversation_data:
+                    with tab_list[-1]:  # Last tab is conversations
+                        st.header("💬 Conversation Analysis")
                         
-                        if len(content) > 200:
-                            preview = content[:200] + "..."
-                            # Individual toggle, but overridden by master toggle
-                            individual_expanded = st.toggle(f"Show full {role} message", key=f"toggle_{msg_key}", value=expand_all)
-                            
-                            display_content = content if (expand_all or individual_expanded) else preview
-                            if role == "system":
-                                st.info(f"**System:** {display_content}")
-                            elif role == "user":
-                                st.warning(f"**User:** {display_content}")
-                            elif role == "assistant":
-                                st.success(f"**Assistant:** {display_content}")
-                        else:
-                            if role == "system":
-                                st.info(f"**System:** {content}")
-                            elif role == "user":
-                                st.warning(f"**User:** {content}")
-                            elif role == "assistant":
-                                st.success(f"**Assistant:** {content}")
-                
-                # Display generated content
-                if "generated_content" in conv_data and conv_data["generated_content"]:
-                    st.markdown("**Generated Reward Function:**")
-                    content = conv_data["generated_content"]
-                    code_key = f"{conv_label}_code"
-                    
-                    if len(content) > 500:
-                        preview = content[:500] + "..."
-                        is_expanded = st.toggle("Show full code", key=f"toggle_{code_key}")
-                        
-                        display_content = content if is_expanded else preview
-                        st.code(display_content, language="csharp")
-                    else:
-                        st.code(content, language="csharp")
+                        for conv_label, conv_data in conversation_data.items():
+                            with st.expander(f"{conv_label}"):
+                                # Display conversation metadata
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Iteration", conv_data.get("iteration", "N/A"))
+                                with col2:
+                                    st.metric("Run ID", conv_data.get("run_id", "N/A"))
+                                with col3:
+                                    st.metric("Type", conv_data.get("conversation_type", "N/A"))
+                                
+                                # Display model metadata if available
+                                if "metadata" in conv_data:
+                                    meta = conv_data["metadata"]
+                                    col1, col2, col3 = st.columns(3)
+                                    with col1:
+                                        st.metric("Model", meta.get("model", "N/A"))
+                                    with col2:
+                                        st.metric("Total Tokens", meta.get("total_tokens", "N/A"))
+                                    with col3:
+                                        st.metric("Latency (ms)", f"{meta.get('latency_ms', 0):.0f}")
+                                
+                                # Display messages
+                                if "messages" in conv_data:
+                                    st.markdown("**Messages:**")
+                                    
+                                    # Master toggle for all messages in this conversation
+                                    expand_all = st.toggle("Expand all messages", key=f"expand_all_{conv_label}")
+                                    
+                                    for i, msg in enumerate(conv_data["messages"]):
+                                        role = msg.get("role", "unknown")
+                                        content = msg.get("content", "")
+                                        msg_key = f"{conv_label}_{role}_{i}"
+                                        
+                                        if len(content) > 200:
+                                            preview = content[:200] + "..."
+                                            # Individual toggle, but overridden by master toggle
+                                            individual_expanded = st.toggle(f"Show full {role} message", key=f"toggle_{msg_key}", value=expand_all)
+                                            
+                                            display_content = content if (expand_all or individual_expanded) else preview
+                                            if role == "system":
+                                                st.info(f"**System:** {display_content}")
+                                            elif role == "user":
+                                                st.warning(f"**User:** {display_content}")
+                                            elif role == "assistant":
+                                                st.success(f"**Assistant:** {display_content}")
+                                        else:
+                                            if role == "system":
+                                                st.info(f"**System:** {content}")
+                                            elif role == "user":
+                                                st.warning(f"**User:** {content}")
+                                            elif role == "assistant":
+                                                st.success(f"**Assistant:** {content}")
+                                
+                                # Display generated content
+                                if "generated_content" in conv_data and conv_data["generated_content"]:
+                                    st.markdown("**Generated Reward Function:**")
+                                    content = conv_data["generated_content"]
+                                    code_key = f"{conv_label}_code"
+                                    
+                                    if len(content) > 500:
+                                        preview = content[:500] + "..."
+                                        is_expanded = st.toggle("Show full code", key=f"toggle_{code_key}")
+                                        
+                                        display_content = content if is_expanded else preview
+                                        st.code(display_content, language="csharp")
+                                    else:
+                                        st.code(content, language="csharp")
     
-    # Display compilation errors at the end
-    if errors_dict:
-        st.header("⚠️ Compilation Errors")
-        for label, errors in errors_dict.items():
-            with st.expander(f"{label} - Compilation Errors"):
-                for error in errors:
-                    st.error(error["error_message"])
-                    st.text(f"Reward Path: {error['reward_path']}")
+                # Display compilation errors at the end (outside tabs)
+                if errors_dict:
+                    st.header("⚠️ Compilation Errors")
+                    for label, errors in errors_dict.items():
+                        with st.expander(f"{label} - Compilation Errors"):
+                            for error in errors:
+                                st.error(error["error_message"])
+                                st.text(f"Reward Path: {error['reward_path']}")
 
 if __name__ == "__main__":
     main()

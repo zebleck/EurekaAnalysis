@@ -38,6 +38,11 @@ EurekaRewards/test/rewards/
 EurekaRewards/*.log
 EurekaRewards/status.json
 runs/
+conv*.json
+results*.json
+reward*.cs
+final_evaluation.cs
+events.out.tfevents*
 
 # Python files (if using ML/AI components)
 __pycache__/
