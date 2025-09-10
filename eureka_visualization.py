@@ -12,8 +12,8 @@ warnings.filterwarnings('ignore')
 
 # Configuration
 BASE_DIR = Path(__file__).parent
-DEFAULT_RESULTS_DIR = BASE_DIR / "EurekaRewards" / "test"
-DEFAULT_TENSORBOARD_DIR = BASE_DIR / "EurekaRewards" / "test" / "tensorboard"
+DEFAULT_RESULTS_DIR = BASE_DIR / "EurekaRewards" 
+DEFAULT_TENSORBOARD_DIR = BASE_DIR / "EurekaRewards" / "tensorboard"
 
 st.set_page_config(
     page_title="Eureka RL Results Visualization",
@@ -39,10 +39,25 @@ class EurekaDataLoader:
     
     @staticmethod
     def get_available_files(directory: Path) -> List[Path]:
-        """Get all available JSON result files recursively"""
-        if not directory.exists():
-            return []
-        return sorted([f for f in directory.rglob("*.json")])
+        """Get JSON files from specific subdirectories"""
+        files = []
+        
+        # Check for conversations folder
+        conversations_dir = directory / "conversations"
+        if conversations_dir.exists():
+            files.extend(sorted(conversations_dir.glob("*.json")))
+        
+        # Check for results folder
+        results_dir = directory / "results"
+        if results_dir.exists():
+            files.extend(sorted(results_dir.glob("*.json")))
+        
+        # Check for rewards folder
+        rewards_dir = directory / "rewards"
+        if rewards_dir.exists():
+            files.extend(sorted(rewards_dir.glob("*.json")))
+        
+        return files
     
     @staticmethod
     def get_subdirectories(directory: Path) -> List[Path]:
@@ -288,29 +303,66 @@ def main():
     with st.sidebar:
         st.header("📁 Data Selection")
         
-        # Folder selection
+        # Enhanced Folder Navigation
         current_dir = st.session_state.results_dir
-        parent_dir = current_dir.parent
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.text(f"📂 Current: {current_dir.name}")
-        with col2:
-            if st.button("⬆️ Up"):
+        # Direct path input for folder navigation
+        with st.expander("📝 Enter Path Directly", expanded=False):
+            direct_path = st.text_input(
+                "Enter full path:",
+                value=str(current_dir),
+                help="Enter the full path to the directory containing your JSON files"
+            )
+            if st.button("Go to Path"):
+                try:
+                    new_path = Path(direct_path)
+                    if new_path.exists() and new_path.is_dir():
+                        st.session_state.results_dir = new_path
+                        st.rerun()
+                    else:
+                        st.error("Invalid directory path")
+                except:
+                    st.error("Invalid path format")
+        
+        # Option 2: Breadcrumb navigation
+        st.markdown("**📍 Current Location:**")
+        path_parts = current_dir.parts
+        breadcrumb_html = ""
+        for i, part in enumerate(path_parts):
+            if i > 0:
+                breadcrumb_html += " / "
+            if i == len(path_parts) - 1:
+                breadcrumb_html += f"<b>{part}</b>"
+            else:
+                breadcrumb_html += part
+        st.markdown(f"<small>{breadcrumb_html}</small>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Enhanced directory browser with tree view
+        st.markdown("**📁 Browse Folders:**")
+        
+        # Show parent directory option
+        parent_dir = current_dir.parent
+        if parent_dir != current_dir:
+            if st.button(f"⬆️ .. (Parent Directory)", use_container_width=True):
                 st.session_state.results_dir = parent_dir
                 st.rerun()
         
-        # Show subdirectories
+        # Get and display subdirectories with file counts
         subdirs = EurekaDataLoader.get_subdirectories(current_dir)
         if subdirs:
-            selected_subdir = st.selectbox(
-                "Browse subdirectories:",
-                options=[None] + subdirs,
-                format_func=lambda x: "-- Select folder --" if x is None else f"📁 {x.name}"
-            )
-            if selected_subdir:
-                st.session_state.results_dir = selected_subdir
-                st.rerun()
+            for subdir in subdirs:
+                # Count JSON files in each subdirectory
+                json_count = len(list(subdir.glob("**/*.json")))
+                folder_icon = "📁" if json_count == 0 else "📂"
+                button_label = f"{folder_icon} {subdir.name} ({json_count} files)"
+                
+                if st.button(button_label, key=f"dir_{subdir}", use_container_width=True):
+                    st.session_state.results_dir = subdir
+                    st.rerun()
+        else:
+            st.info("No subdirectories found")
         
         st.markdown("---")
         
@@ -335,29 +387,58 @@ def main():
             
             st.markdown("---")
             
-            # Show all files with checkboxes
-            for file in files:
-                is_selected = file in st.session_state.selected_files
-                # Get relative path to show folder structure
-                rel_path = file.relative_to(current_dir)
-                folder = rel_path.parent.name if rel_path.parent.name else ""
-                
-                # Add icon based on folder
-                if "conversations" in str(rel_path):
-                    display_name = f"💬 {folder}/{file.name}" if folder else f"💬 {file.name}"
-                elif "results" in str(rel_path):
-                    display_name = f"📊 {folder}/{file.name}" if folder else f"📊 {file.name}"
-                else:
-                    display_name = f"📄 {folder}/{file.name}" if folder else f"📄 {file.name}"
-                
-                if st.checkbox(display_name, value=is_selected, key=f"file_{rel_path}"):
-                    if file not in st.session_state.selected_files:
-                        st.session_state.selected_files.append(file)
-                        st.rerun()
-                else:
-                    if file in st.session_state.selected_files:
-                        st.session_state.selected_files.remove(file)
-                        st.rerun()
+            # Organize files by folder
+            conversations_files = [f for f in files if "conversations" in str(f.relative_to(current_dir))]
+            results_files = [f for f in files if "results" in str(f.relative_to(current_dir))]
+            rewards_files = [f for f in files if "rewards" in str(f.relative_to(current_dir))]
+            
+            # Display conversation files
+            if conversations_files:
+                st.markdown("**💬 Conversations**")
+                for file in conversations_files:
+                    is_selected = file in st.session_state.selected_files
+                    display_name = f"💬 {file.name}"
+                    
+                    if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
+                        if file not in st.session_state.selected_files:
+                            st.session_state.selected_files.append(file)
+                            st.rerun()
+                    else:
+                        if file in st.session_state.selected_files:
+                            st.session_state.selected_files.remove(file)
+                            st.rerun()
+            
+            # Display results files
+            if results_files:
+                st.markdown("**📊 Results**")
+                for file in results_files:
+                    is_selected = file in st.session_state.selected_files
+                    display_name = f"📊 {file.name}"
+                    
+                    if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
+                        if file not in st.session_state.selected_files:
+                            st.session_state.selected_files.append(file)
+                            st.rerun()
+                    else:
+                        if file in st.session_state.selected_files:
+                            st.session_state.selected_files.remove(file)
+                            st.rerun()
+            
+            # Display rewards files
+            if rewards_files:
+                st.markdown("**🎯 Rewards**")
+                for file in rewards_files:
+                    is_selected = file in st.session_state.selected_files
+                    display_name = f"🎯 {file.name}"
+                    
+                    if st.checkbox(display_name, value=is_selected, key=f"file_{file}"):
+                        if file not in st.session_state.selected_files:
+                            st.session_state.selected_files.append(file)
+                            st.rerun()
+                    else:
+                        if file in st.session_state.selected_files:
+                            st.session_state.selected_files.remove(file)
+                            st.rerun()
             
             # Show selected count
             if st.session_state.selected_files:
@@ -423,15 +504,6 @@ def main():
         except Exception as e:
             st.error(f"Error loading {filepath.name}: {str(e)}")
     
-    # Display compilation errors if any
-    if errors_dict:
-        st.header("⚠️ Compilation Errors")
-        for label, errors in errors_dict.items():
-            with st.expander(f"{label} - Compilation Errors"):
-                for error in errors:
-                    st.error(error["error_message"])
-                    st.text(f"Reward Path: {error['reward_path']}")
-    
     # Display visualizations
     if all_dfs:
         # Training Progress
@@ -460,9 +532,13 @@ def main():
         # Heatmap
         if show_heatmap:
             st.header("🗺️ Success Rate Heatmap")
-            # Get all files from current directory for heatmap
-            all_files = EurekaDataLoader.get_available_files(st.session_state.results_dir)
-            fig = create_heatmap(all_files)
+            # Get result files specifically for heatmap
+            results_dir = st.session_state.results_dir / "results"
+            if results_dir.exists():
+                heatmap_files = sorted(results_dir.glob("*.json"))
+            else:
+                heatmap_files = []
+            fig = create_heatmap(heatmap_files)
             if fig.data:
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -592,6 +668,15 @@ def main():
                         st.code(display_content, language="csharp")
                     else:
                         st.code(content, language="csharp")
+    
+    # Display compilation errors at the end
+    if errors_dict:
+        st.header("⚠️ Compilation Errors")
+        for label, errors in errors_dict.items():
+            with st.expander(f"{label} - Compilation Errors"):
+                for error in errors:
+                    st.error(error["error_message"])
+                    st.text(f"Reward Path: {error['reward_path']}")
 
 if __name__ == "__main__":
     main()
